@@ -53,7 +53,7 @@ export default function SurveyPage() {
 		const value = form.getValues(currentQuestion.id!.toString());
 		const lastAnswer: SurveyAnswer = {
 			survey_question_id: currentQuestion.id!,
-			answer_text: value != null ? String(value) : "",
+			answer_text: String(value),
 		};
 		dispatch(setSingleSurveyAnswer(lastAnswer));
 
@@ -196,9 +196,9 @@ export default function SurveyPage() {
 			const value = form.getValues(currentQuestion.id!.toString());
 			const answer: SurveyAnswer = {
 				survey_question_id: currentQuestion.id!,
-				answer_text: String(value ?? ""),
+				answer_text: String(value),
 			};
-			dispatch(setSingle SurveyAnswer(answer));
+			dispatch(setSingleSurveyAnswer(answer));
 			if (currentQuestionIndex < orderedQuestions.length - 1) {
 				setCurrentQuestionIndex(currentQuestionIndex + 1);
 			}
