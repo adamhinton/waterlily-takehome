@@ -5,10 +5,17 @@
 // It wraps around its children so that the children don't render until the auth state is known
 // This component has no UI, it's just a wrapper
 
+import { createClient } from "@/lib/supabase/client";
 import { ReactNode, useEffect, useState } from "react";
 import { useAppDispatch } from "../redux/hooks";
-import { createClient } from "@/lib/supabase/client";
-import { clearUser, setUser } from "../redux/reducers/userReducer";
+import { setSurvey } from "../redux/reducers/surveyReducer";
+import { redirect, useRouter } from "next/navigation";
+import { setUser } from "../redux/reducers/userReducer";
+import {
+	Survey,
+	SurveyAnswer,
+	SurveyQuestion,
+} from "../utils/types/SurveyTypes";
 
 interface AuthWatcherProps {
 	children: ReactNode;
@@ -18,9 +25,73 @@ const AuthWatcher = ({ children }: AuthWatcherProps) => {
 	const supabase = createClient();
 	const dispatch = useAppDispatch();
 	const [authInitialized, setAuthInitialized] = useState(false);
+	const router = useRouter();
 
 	useEffect(() => {
-		// TODO: fetchAndSetSurvey
+		const fetchAndSetUserSurvey = async (userId: string) => {
+			// Fetch surveys from api endpoint
+			try {
+				// Fetch survey with id=1 (the only survey in our app per requirements)
+				const surveyResponse = await fetch("/api/survey?id=1");
+				const surveyAnswersResponse = await fetch("/api/survey_answers");
+
+				const surveyAnswers = await surveyAnswersResponse.json();
+
+				console.log("surveyAnswers:", surveyAnswers);
+
+				// If there are survey answers, add them to the survey data and redirect to /survey/complete
+				if (
+					surveyAnswers &&
+					Array.isArray(surveyAnswers) &&
+					surveyAnswers.length > 0
+				) {
+					// Add answers to survey questions
+					const surveyData: Survey = await surveyResponse.json();
+					if (surveyData && surveyData.survey_questions) {
+						surveyData.survey_questions = surveyData.survey_questions.map(
+							(question: SurveyQuestion) => {
+								const answer = surveyAnswers.find(
+									(a: SurveyAnswer) => a.survey_question_id === question.id
+								);
+								if (answer) {
+									question.answer = answer;
+								}
+								return question;
+							}
+						);
+					}
+					dispatch(setSurvey({ ...surveyData }));
+					// Get current URL; if it's already survey/complete, don't redirect
+					// const currentPath = window.location.pathname;
+					// if (currentPath === "/survey/complete") {
+					// 	return;
+					/`/ }
+					// User has a completed survey, so forward them to the review page
+					// This was originally a redirect but those aren't supposed to be used in useEffect, according to Copilot
+					// router.push("/survey/complete");
+					// return;
+				}
+
+				if (!surveyResponse.ok) {
+					throw new Error(
+						`Failed to fetch survey: ${surveyResponse.statusText}`
+					);
+				}
+
+				const surveyData = await surveyResponse.json();
+				console.log("blah blah blah");
+
+				// Dispatch survey data to Redux store
+				dispatch(setSurvey({ ...surveyData }));
+
+				console.log("surveyData:", surveyData);
+
+				console.log("Survey data loaded for user:", userId);
+			} catch (error) {
+				console.error("Error fetching survey data:", error);
+			}
+		};
+		// TODO get user's surveys and set to state
 
 		// Check if there's an initial session on first load
 		const initializeAuth = async () => {
@@ -32,10 +103,10 @@ const AuthWatcher = ({ children }: AuthWatcherProps) => {
 					setUser({
 						id: data.session.user.id,
 						email: data.session.user.email!,
-						isDarkMode: false,
+						isDarkMode: true,
 					})
 				);
-				// TODO fetchAndSetSurveys
+				// TODO set surveys to state
 			}
 
 			// Indicate auth is initialized whether user is logged in or not
@@ -50,21 +121,17 @@ const AuthWatcher = ({ children }: AuthWatcherProps) => {
 		} = supabase.auth.onAuthStateChange((event, session) => {
 			if (event === "SIGNED_IN") {
 				console.log("SIGNED_IN");
-				const user = {
-					id: session!.user.id,
-					email: session!.user.email!,
-					isDarkMode: false,
-				};
-				console.log("User signed in:", user);
-				dispatch(setUser(user));
-				// TODO fetchAndSetSurveys
-				// redirect("/dashboard");
+				dispatch(
+					setUser({
+						id: session!.user.id,
+						email: session!.user.email!,
+						isDarkMode: false,
+					})
+				);
+				fetchAndSetUserSurvey(session!.user.id);
+				redirect("/survey");
 			} else if (event === "SIGNED_OUT") {
-				// Handle sign out event
-				console.log("User signed out");
-				dispatch(clearUser());
-				// Remove surveys
-				// redirect("/login");
+				// Nothing needed here for MVP
 			} else if (event === "TOKEN_REFRESHED") {
 				// Handle token refresh event
 				console.log("Token refreshed:", session);
@@ -75,7 +142,7 @@ const AuthWatcher = ({ children }: AuthWatcherProps) => {
 					setUser({
 						id: session!.user.id,
 						email: session!.user.email!,
-						isDarkMode: false,
+						isDarkMode: true,
 					})
 				);
 
@@ -98,7 +165,7 @@ const AuthWatcher = ({ children }: AuthWatcherProps) => {
 						isDarkMode: false,
 					})
 				);
-				// TODO fetchAndSetSurveys
+				fetchAndSetUserSurvey(session!.user.id);
 			}
 		});
 
@@ -106,14 +173,14 @@ const AuthWatcher = ({ children }: AuthWatcherProps) => {
 		return () => {
 			subscription.unsubscribe();
 		};
-	}, [supabase.auth, supabase, dispatch]);
+	}, [supabase.auth, supabase, dispatch, router]);
 
 	// Only render children when auth is initialized
 	if (!authInitialized) {
 		return (
 			<div className="flex items-center justify-center min-h-screen">
 				<div className="text-center">
-					<h2 className="text-xl font-semibold mb-2">Loading...</h2>
+					<h2 className="mb-2 text-xl font-semibold">Loading...</h2>
 					<p>Checking authentication status</p>
 				</div>
 			</div>
