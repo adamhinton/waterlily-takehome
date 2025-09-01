@@ -1,14 +1,14 @@
 import { z } from "zod";
 
 const SurveyAnswerSchema = z.object({
-	id: z.number().int().positive(),
+	id: z.number().int().positive().optional(),
 	survey_question_id: z.number().int().positive(),
 	answer_text: z.string().min(1).max(1000),
 });
 export type SurveyAnswer = z.infer<typeof SurveyAnswerSchema>;
 
 export const SurveyQuestionSchema = z.object({
-	id: z.number().int().positive(),
+	id: z.number().int().positive().optional(),
 	survey_id: z.number().int().positive(),
 	title: z.string().min(1).max(255),
 	question_text: z.string().min(1),
@@ -30,7 +30,7 @@ export const SurveyQuestionSchema = z.object({
 export type SurveyQuestion = z.infer<typeof SurveyQuestionSchema>;
 
 export const SurveySchema = z.object({
-	id: z.number().int().positive(),
+	id: z.number().int().positive().optional(),
 	title: z.string().min(1).max(255),
 	description: z.string().max(1000).optional().nullable(),
 	survey_questions: z.array(SurveyQuestionSchema).optional().nullable(),

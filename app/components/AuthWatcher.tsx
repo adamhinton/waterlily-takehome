@@ -33,20 +33,35 @@ const AuthWatcher = ({ children }: AuthWatcherProps) => {
 			try {
 				// Fetch survey with id=1 (the only survey in our app per requirements)
 				const surveyResponse = await fetch("/api/survey?id=1");
-				const surveyAnswersResponse = await fetch("/api/survey_answers");
+				const surveyAnswersResponse = await fetch("/api/survey/survey_answers");
+
+				// Check if responses are OK before parsing JSON
+				if (!surveyResponse.ok) {
+					throw new Error(
+						`Failed to fetch survey: ${surveyResponse.statusText}`
+					);
+				}
+
+				if (!surveyAnswersResponse.ok) {
+					throw new Error(
+						`Failed to fetch survey answers: ${surveyAnswersResponse.statusText}`
+					);
+				}
 
 				const surveyAnswers = await surveyAnswersResponse.json();
-
 				console.log("surveyAnswers:", surveyAnswers);
 
-				// If there are survey answers, add them to the survey data and redirect to /survey/complete
+				// Get survey data
+				const surveyData: Survey = await surveyResponse.json();
+				console.log("surveyData:", surveyData);
+
+				// If there are survey answers, add them to the survey data
 				if (
 					surveyAnswers &&
 					Array.isArray(surveyAnswers) &&
 					surveyAnswers.length > 0
 				) {
 					// Add answers to survey questions
-					const surveyData: Survey = await surveyResponse.json();
 					if (surveyData && surveyData.survey_questions) {
 						surveyData.survey_questions = surveyData.survey_questions.map(
 							(question: SurveyQuestion) => {
@@ -60,31 +75,10 @@ const AuthWatcher = ({ children }: AuthWatcherProps) => {
 							}
 						);
 					}
-					dispatch(setSurvey({ ...surveyData }));
-					// Get current URL; if it's already survey/complete, don't redirect
-					// const currentPath = window.location.pathname;
-					// if (currentPath === "/survey/complete") {
-					// 	return;
-					/`/ }
-					// User has a completed survey, so forward them to the review page
-					// This was originally a redirect but those aren't supposed to be used in useEffect, according to Copilot
-					// router.push("/survey/complete");
-					// return;
 				}
-
-				if (!surveyResponse.ok) {
-					throw new Error(
-						`Failed to fetch survey: ${surveyResponse.statusText}`
-					);
-				}
-
-				const surveyData = await surveyResponse.json();
-				console.log("blah blah blah");
 
 				// Dispatch survey data to Redux store
 				dispatch(setSurvey({ ...surveyData }));
-
-				console.log("surveyData:", surveyData);
 
 				console.log("Survey data loaded for user:", userId);
 			} catch (error) {
