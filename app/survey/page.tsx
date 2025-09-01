@@ -196,9 +196,9 @@ export default function SurveyPage() {
 			const value = form.getValues(currentQuestion.id!.toString());
 			const answer: SurveyAnswer = {
 				survey_question_id: currentQuestion.id!,
-				answer_text: value != null ? String(value) : null,
+				answer_text: String(value ?? ""),
 			};
-			dispatch(setSingleSurveyAnswer(answer));
+			dispatch(setSingle SurveyAnswer(answer));
 			if (currentQuestionIndex < orderedQuestions.length - 1) {
 				setCurrentQuestionIndex(currentQuestionIndex + 1);
 			}
