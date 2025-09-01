@@ -1,12 +1,11 @@
 "use client";
-import React from "react";
 
 // README
 // Per redux docs, this creates a new store instance every time a request is made. See store.ts for more info.
 
-import { useRef } from "react";
-import { Provider } from "react-redux";
+import React, { useRef } from "react";
 import { makeStore, AppStore } from "./store";
+import { Provider } from "react-redux";
 
 export default function ReduxStoreProvider({
 	children,
