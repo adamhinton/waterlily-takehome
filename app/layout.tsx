@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import "./globals.css";
+import ReduxStoreProvider from "./redux/StoreProvider";
+import AuthWatcher from "./components/AuthWatcher";
 
 const defaultUrl = process.env.VERCEL_URL
 	? `https://${process.env.VERCEL_URL}`
@@ -33,7 +35,9 @@ export default function RootLayout({
 					enableSystem
 					disableTransitionOnChange
 				>
-					{children}
+					<ReduxStoreProvider>
+						<AuthWatcher>{children}</AuthWatcher>
+					</ReduxStoreProvider>
 				</ThemeProvider>
 				<script src="https://accounts.google.com/gsi/client" async></script>
 			</body>
