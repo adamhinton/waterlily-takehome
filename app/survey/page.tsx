@@ -36,10 +36,12 @@ export default function SurveyPage() {
 	}, [dispatch]);
 
 	useEffect(() => {
-		if (survey?.survey_questions) {
-			const sortedQuestions = [...survey.survey_questions].sort(
+		console.log("survey_questions in useEffect:", survey?.survey_question);
+		if (survey?.survey_question) {
+			const sortedQuestions = [...survey.survey_question].sort(
 				(a, b) => a.question_order - b.question_order
 			);
+			console.log("sortedQuestions:", sortedQuestions);
 			setOrderedQuestions(sortedQuestions);
 		}
 	}, [survey]);
@@ -57,7 +59,7 @@ export default function SurveyPage() {
 		};
 		dispatch(setSingleSurveyAnswer(lastAnswer));
 
-		if (!survey?.survey_questions) {
+		if (!survey?.survey_question) {
 			console.error("No questions to submit");
 			return;
 		}
@@ -66,7 +68,7 @@ export default function SurveyPage() {
 		// but it's the easiest way to get all of them at once.
 		// We also need to make sure we include the *last* answer, which may not be in the store yet.
 		const otherAnswers =
-			survey.survey_questions
+			survey.survey_question
 				?.map((q) => q.answer)
 				.filter(
 					(a): a is SurveyAnswer =>
@@ -305,7 +307,8 @@ const NextButton = ({ onNext }: { onNext: () => void }) => {
 	return (
 		<button
 			onClick={onNext}
-			className="px-8 py-3 font-medium text-white transition-all duration-300 ease-out rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:scale-105 hover:shadow-lg hover:shadow-primary/25 active:scale-95 focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-background-base"
+			className="px-8 py-3 font-medium text-white transition-all duration-300 ease-out rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:scale-105 hover:shadow-lg hover:shadow-primary/25 active:scale-95 focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-
+			offset-background-base"
 		>
 			Next →
 		</button>
