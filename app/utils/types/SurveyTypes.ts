@@ -33,6 +33,6 @@ export const SurveySchema = z.object({
 	id: z.number().int().positive().optional(),
 	title: z.string().min(1).max(255),
 	description: z.string().max(1000).optional().nullable(),
-	survey_questions: z.array(SurveyQuestionSchema).optional().nullable(),
+	survey_question: z.array(SurveyQuestionSchema).optional().nullable(), // Updated to match actual data structure
 });
 export type Survey = z.infer<typeof SurveySchema>;
