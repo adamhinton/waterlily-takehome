@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useAppSelector, useAppDispatch } from "@/app/redux/hooks";
 import {
 	setSurvey,
@@ -46,7 +46,68 @@ export default function SurveyPage() {
 		}
 	}, [survey]);
 
-	const onSubmit = async () => {
+	const currentQuestion = orderedQuestions[currentQuestionIndex];
+
+	const getValidationSchema = (question: SurveyQuestionType) => {
+		if (!question) return z.object({}).passthrough();
+		let schema: z.ZodTypeAny;
+		switch (question.question_type) {
+			case "email":
+				schema = z.string().email({ message: "Invalid email address" });
+				break;
+			case "number":
+				let numSchema = z.coerce.number();
+				if (question.min != null) {
+					numSchema = numSchema.min(question.min, {
+						message: `Must be at least ${question.min}`,
+					});
+				}
+				if (question.max != null) {
+					numSchema = numSchema.max(question.max, {
+						message: `Must be at most ${question.max}`,
+					});
+				}
+				schema = numSchema;
+				break;
+			default:
+				let strSchema = z.string();
+				if (question.min != null) {
+					strSchema = strSchema.min(question.min, {
+						message: `Must be at least ${question.min} characters`,
+					});
+				}
+				if (question.max != null) {
+					strSchema = strSchema.max(question.max, {
+						message: `Must be at most ${question.max} characters`,
+					});
+				}
+				schema = strSchema;
+		}
+
+		if (question.is_required) {
+			if (schema instanceof z.ZodString) {
+				schema = schema.min(1, { message: "This field is required" });
+			}
+		} else {
+			schema = schema.optional().nullable();
+		}
+
+		return z.object({
+			[question.id!.toString()]: schema,
+		});
+	};
+
+	const form = useForm({
+		resolver: zodResolver(getValidationSchema(currentQuestion)),
+		defaultValues: currentQuestion?.answer
+			? {
+					[currentQuestion.id!.toString()]:
+						currentQuestion.answer.answer_text ?? "",
+			  }
+			: {},
+	});
+
+	const onSubmit = useCallback(async () => {
 		// Validate the last question
 		const isValid = await form.trigger();
 		if (!isValid) {
@@ -116,68 +177,7 @@ export default function SurveyPage() {
 		if (success) {
 			redirect("/survey/complete");
 		}
-	};
-
-	const currentQuestion = orderedQuestions[currentQuestionIndex];
-
-	const getValidationSchema = (question: SurveyQuestionType) => {
-		if (!question) return z.object({}).passthrough();
-		let schema: z.ZodTypeAny;
-		switch (question.question_type) {
-			case "email":
-				schema = z.string().email({ message: "Invalid email address" });
-				break;
-			case "number":
-				let numSchema = z.coerce.number();
-				if (question.min != null) {
-					numSchema = numSchema.min(question.min, {
-						message: `Must be at least ${question.min}`,
-					});
-				}
-				if (question.max != null) {
-					numSchema = numSchema.max(question.max, {
-						message: `Must be at most ${question.max}`,
-					});
-				}
-				schema = numSchema;
-				break;
-			default:
-				let strSchema = z.string();
-				if (question.min != null) {
-					strSchema = strSchema.min(question.min, {
-						message: `Must be at least ${question.min} characters`,
-					});
-				}
-				if (question.max != null) {
-					strSchema = strSchema.max(question.max, {
-						message: `Must be at most ${question.max} characters`,
-					});
-				}
-				schema = strSchema;
-		}
-
-		if (question.is_required) {
-			if (schema instanceof z.ZodString) {
-				schema = schema.min(1, { message: "This field is required" });
-			}
-		} else {
-			schema = schema.optional().nullable();
-		}
-
-		return z.object({
-			[question.id!.toString()]: schema,
-		});
-	};
-
-	const form = useForm({
-		resolver: zodResolver(getValidationSchema(currentQuestion)),
-		defaultValues: currentQuestion?.answer
-			? {
-					[currentQuestion.id!.toString()]:
-						currentQuestion.answer.answer_text ?? "",
-			  }
-			: {},
-	});
+	}, [form, currentQuestion, dispatch, survey, orderedQuestions]);
 
 	useEffect(() => {
 		form.reset(
@@ -190,7 +190,7 @@ export default function SurveyPage() {
 		);
 	}, [currentQuestion, form]);
 
-	const handleNext = async () => {
+	const handleNext = useCallback(async () => {
 		const isValid = await form.trigger();
 		if (isValid) {
 			const value = form.getValues(currentQuestion.id!.toString());
@@ -203,13 +203,84 @@ export default function SurveyPage() {
 				setCurrentQuestionIndex(currentQuestionIndex + 1);
 			}
 		}
-	};
+	}, [
+		form,
+		currentQuestion,
+		dispatch,
+		currentQuestionIndex,
+		orderedQuestions.length,
+	]);
 
-	const handlePrevious = () => {
+	const handlePrevious = useCallback(() => {
 		if (currentQuestionIndex > 0) {
 			setCurrentQuestionIndex(currentQuestionIndex - 1);
 		}
-	};
+	}, [currentQuestionIndex]);
+
+	// Keyboard shortcuts
+	useEffect(() => {
+		const handleKeyDown = (event: KeyboardEvent) => {
+			const activeElement = document.activeElement;
+			const isInputFocused =
+				activeElement &&
+				(activeElement.tagName === "INPUT" ||
+					activeElement.tagName === "TEXTAREA" ||
+					activeElement.getAttribute("contenteditable") === "true");
+
+			const isLastQuestion =
+				currentQuestionIndex === orderedQuestions.length - 1;
+
+			switch (event.key) {
+				case "Enter":
+					// For textareas, only trigger navigation with Ctrl+Enter to allow normal line breaks
+					if (
+						isInputFocused &&
+						activeElement.tagName === "TEXTAREA" &&
+						!event.ctrlKey
+					) {
+						return; // Allow normal Enter behavior in textarea
+					}
+
+					// For all other cases (regular inputs or Ctrl+Enter in textarea), trigger navigation
+					event.preventDefault();
+					if (isLastQuestion) {
+						onSubmit();
+					} else {
+						handleNext();
+					}
+					break;
+				case "ArrowLeft":
+					// Only prevent arrow keys when NOT in input fields to avoid interfering with text navigation
+					if (!isInputFocused) {
+						event.preventDefault();
+						handlePrevious();
+					}
+					break;
+				case "ArrowRight":
+					// Only prevent arrow keys when NOT in input fields to avoid interfering with text navigation
+					if (!isInputFocused) {
+						event.preventDefault();
+						if (isLastQuestion) {
+							onSubmit();
+						} else {
+							handleNext();
+						}
+					}
+					break;
+			}
+		};
+
+		document.addEventListener("keydown", handleKeyDown);
+		return () => {
+			document.removeEventListener("keydown", handleKeyDown);
+		};
+	}, [
+		currentQuestionIndex,
+		orderedQuestions.length,
+		handleNext,
+		handlePrevious,
+		onSubmit,
+	]);
 
 	if (!survey || !currentQuestion) {
 		return (
@@ -264,6 +335,38 @@ export default function SurveyPage() {
 					) : (
 						<NextButton onNext={handleNext} />
 					)}
+				</div>
+
+				{/* Keyboard Shortcuts Help */}
+				<div className="flex flex-wrap items-center justify-center gap-4 mt-6 text-sm text-neutral-text/70">
+					<div className="flex items-center gap-2">
+						<kbd className="px-2 py-1 text-xs border rounded bg-background-elevated border-neutral/30">
+							Enter
+						</kbd>
+						<span>{isLastQuestion ? "Submit" : "Next"}</span>
+					</div>
+					<div className="flex items-center gap-2">
+						<kbd className="px-2 py-1 text-xs border rounded bg-background-elevated border-neutral/30">
+							Ctrl
+						</kbd>
+						<span>+</span>
+						<kbd className="px-2 py-1 text-xs border rounded bg-background-elevated border-neutral/30">
+							Enter
+						</kbd>
+						<span>in textarea</span>
+					</div>
+					<div className="flex items-center gap-2">
+						<kbd className="px-2 py-1 text-xs border rounded bg-background-elevated border-neutral/30">
+							←
+						</kbd>
+						<span>Previous</span>
+					</div>
+					<div className="flex items-center gap-2">
+						<kbd className="px-2 py-1 text-xs border rounded bg-background-elevated border-neutral/30">
+							→
+						</kbd>
+						<span>{isLastQuestion ? "Submit" : "Next"}</span>
+					</div>
 				</div>
 
 				{/* Progress Section */}
