@@ -62,8 +62,8 @@ const AuthWatcher = ({ children }: AuthWatcherProps) => {
 					surveyAnswers.length > 0
 				) {
 					// Add answers to survey questions
-					if (surveyData && surveyData.survey_questions) {
-						surveyData.survey_questions = surveyData.survey_questions.map(
+					if (surveyData && surveyData.survey_question) {
+						surveyData.survey_question = surveyData.survey_question.map(
 							(question: SurveyQuestion) => {
 								const answer = surveyAnswers.find(
 									(a: SurveyAnswer) => a.survey_question_id === question.id
