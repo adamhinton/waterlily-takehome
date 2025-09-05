@@ -22,26 +22,26 @@ const surveySlice = createSlice({
 			state.value = action.payload;
 		},
 		setSingleSurveyAnswer: (state, action: PayloadAction<SurveyAnswer>) => {
-			if (!state.value || !state.value.survey_questions) return;
+			if (!state.value || !state.value.survey_question) return;
 			const { survey_question_id } = action.payload;
-			const questionIndex = state.value.survey_questions.findIndex(
+			const questionIndex = state.value.survey_question.findIndex(
 				(q) => q.id === survey_question_id
 			);
 			if (questionIndex === -1) return;
-			state.value.survey_questions[questionIndex].answer = action.payload;
+			state.value.survey_question[questionIndex].answer = action.payload;
 		},
 		setMultipleSurveyAnswers: (
 			state,
 			action: PayloadAction<SurveyAnswer[]>
 		) => {
-			if (!state.value || !state.value.survey_questions) return;
+			if (!state.value || !state.value.survey_question) return;
 			action.payload.forEach((answer) => {
 				const { survey_question_id } = answer;
-				const questionIndex = state.value!.survey_questions!.findIndex(
+				const questionIndex = state.value!.survey_question!.findIndex(
 					(q) => q.id === survey_question_id
 				);
 				if (questionIndex === -1) return;
-				state.value!.survey_questions![questionIndex].answer = answer;
+				state.value!.survey_question![questionIndex].answer = answer;
 			});
 		},
 		clearSurvey: (state) => {

@@ -47,11 +47,12 @@ export default function SurveyPage() {
 	}, [survey]);
 
 	const onSubmit = async () => {
-		// last question validation
+		// Validate the last question
 		const isValid = await form.trigger();
 		if (!isValid) {
 			return;
 		}
+
 		const value = form.getValues(currentQuestion.id!.toString());
 		const lastAnswer: SurveyAnswer = {
 			survey_question_id: currentQuestion.id!,
@@ -64,34 +65,36 @@ export default function SurveyPage() {
 			return;
 		}
 
-		// It's a little awkward that we have to dip back into the Redux store to get the answers,
-		// but it's the easiest way to get all of them at once.
-		// We also need to make sure we include the *last* answer, which may not be in the store yet.
-		const otherAnswers =
-			survey.survey_question
-				?.map((q) => q.answer)
-				.filter(
-					(a): a is SurveyAnswer =>
-						a != null && a.survey_question_id !== lastAnswer.survey_question_id
-				) ?? [];
+		// Wait a moment for Redux to update, then get fresh state
+		await new Promise((resolve) => setTimeout(resolve, 100));
 
-		const answersToSubmit = [...otherAnswers, lastAnswer];
+		// Collect all answers, making sure to include the last one we just dispatched
+		const allAnswers = orderedQuestions
+			.map((q) => {
+				if (q.id === currentQuestion.id) {
+					return lastAnswer; // Include the last answer explicitly since Redux might not have updated yet
+				}
+				return survey.survey_question?.find((sq) => sq.id === q.id)?.answer;
+			})
+			.filter((a): a is SurveyAnswer => a != null);
 
-		if (!answersToSubmit || answersToSubmit.length === 0) {
-			// Should not be able to get here, but just in case
+		console.log("All answers being submitted:", allAnswers);
+		console.log("Number of answers:", allAnswers.length);
+		console.log("Number of questions:", orderedQuestions.length);
+
+		if (!allAnswers || allAnswers.length === 0) {
 			console.error("No answers to submit");
 			return;
 		}
 
 		let success = false;
-		console.log("success:", success);
 		try {
-			const response = await fetch("/api/survey_answers", {
+			const response = await fetch("/api/survey/survey_answers", {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
 				},
-				body: JSON.stringify(answersToSubmit),
+				body: JSON.stringify(allAnswers),
 			});
 
 			if (!response.ok) {
@@ -101,20 +104,15 @@ export default function SurveyPage() {
 			const result = await response.json();
 			if (result.success) {
 				success = true;
-				console.log("success:", success);
 				alert("Survey submitted successfully!");
-				// Redirect to /survey/complete happens below after try/catch
 			} else {
 				throw new Error(result.error || "An unknown error occurred");
 			}
 		} catch (error) {
-			console.log("blah blah bla342342h");
 			console.error("Error submitting survey:", error);
-			// We would show a toast or something here
 			alert("There was an error submitting your survey. Please try again.");
 		}
 
-		console.log("success:", success);
 		if (success) {
 			redirect("/survey/complete");
 		}
